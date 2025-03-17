@@ -78,16 +78,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // PDF download handler
     downloadPdfBtn.addEventListener('click', () => {
+        // Create a clone to avoid modifying the visible DOM
         const element = resumePreview.cloneNode(true);
+        
+        // Add print-specific styling
+        const style = document.createElement('style');
+        style.textContent = `
+            @page {
+                margin: 15mm 10mm;
+                size: A4;
+            }
+            body {
+                font-family: 'Georgia', serif;
+                font-size: 12pt;
+                line-height: 1.5;
+                color: #333;
+            }
+            .resume {
+                max-width: 100%;
+                padding: 0;
+                margin: 0;
+            }
+            .project-item, .experience-item, .education-item {
+                page-break-inside: avoid;
+            }
+            a {
+                text-decoration: none;
+                color: #333;
+            }
+            .project-stats, .contact-info {
+                display: flex;
+                gap: 10px;
+            }
+        `;
+        element.appendChild(style);
+        
         const opt = {
             margin: [10, 10],
             filename: `websim-resume-${usernameInput.value}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
+            html2canvas: { scale: 2, useCORS: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
         
-        html2pdf().set(opt).from(element).save();
+        // Show a message to let the user know PDF is being generated
+        statusMessage.textContent = 'Generating PDF, please wait...';
+        
+        html2pdf().set(opt).from(element).save().then(() => {
+            statusMessage.textContent = 'PDF downloaded successfully!';
+            setTimeout(() => {
+                statusMessage.textContent = '';
+            }, 3000);
+        });
     });
 
     // Copy HTML handler
@@ -214,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     description: project.description || '',
                     likes: project.stats.likes,
                     comments: project.stats.comments,
-                    version: revision.version,
+                    version: revision ? revision.version : 1,
                     created_at: project.created_at,
                     updated_at: project.updated_at,
                     posted: project.posted,
@@ -222,38 +264,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
 
+            // Extract additional information
+            const additionalInfoParsed = parseAdditionalInfo(additionalInfo);
+
             // Create a prompt for the LLM
-            const prompt = `Create a professional resume for a web developer based on their WebSim project data. 
+            const prompt = `Create a detailed, professional resume for a web developer based on their WebSim project data. 
             
 User information:
 Username: ${userData.username}
 Bio: ${userData.description || 'No bio provided'}
 
-Additional information provided by user:
-${additionalInfo || 'None provided'}
+Additional information:
+${JSON.stringify(additionalInfoParsed)}
 
 Top ${projectsData.length} projects (ranked by engagement):
-${JSON.stringify(projectsData.slice(0, 10))}
-...and ${projectsData.length - 10} more projects
+${JSON.stringify(projectsData.slice(0, 15))}
+...and ${Math.max(0, projectsData.length - 15)} more projects
 
 ${isRegeneration ? 'Please generate a completely different style of resume than before, with a different structure and focus.' : ''}
 
 Instructions:
-1. Create a professional-looking resume in HTML format
-2. Use the class 'resume' for the main container
-3. Highlight the most impressive projects and group similar projects together
-4. Extract skills based on project descriptions and titles
-5. Include sections for: Summary, Skills, Notable Projects, and Experience
-6. Include any additional information provided by the user
-7. Make it look professional and ready for job applications
-8. Only output the HTML for the resume, no explanations or markdown`;
+1. Create a professional-looking resume in HTML format with the class 'resume' for the main container
+2. Include a detailed header with the user's name and contact information from the additional info
+3. Create a professional summary that highlights the developer's expertise based on their projects
+4. Extract and categorize skills (like languages, frameworks, tools) from project descriptions and titles
+5. Include sections for: Summary, Skills, Notable Projects, Experience (from additional info), and Education (from additional info)
+6. For each project, include: title (linked to URL), description, technologies used, and metrics (likes, comments)
+7. Format dates in a professional manner (Month Year)
+8. Add appropriate icons using inline SVG for contact info and metrics
+9. Make the resume both visually appealing and structured for easy scanning by recruiters
+10. Ensure the layout works well for both screen viewing and PDF printing
+11. Only output the complete HTML for the resume without any explanations`;
 
             // Generate resume using LLM
             const completion = await websim.chat.completions.create({
                 messages: [
                     {
                         role: "system",
-                        content: "You are an expert resume writer who specializes in creating compelling web developer resumes based on project work. Create a professional HTML resume with sections for a summary, skills, and notable projects."
+                        content: "You are an expert resume writer who specializes in creating compelling web developer resumes based on project work. Create a professional HTML resume with detailed sections for a summary, skills, notable projects, experience, and education. Include inline SVG icons for better visuals."
                     },
                     {
                         role: "user",
@@ -267,6 +315,66 @@ Instructions:
             console.error('Error generating resume with LLM:', error);
             throw new Error('Failed to generate resume');
         }
+    }
+
+    // Parse additional information into structured data
+    function parseAdditionalInfo(additionalInfo) {
+        if (!additionalInfo) return { skills: [], experience: [], education: [] };
+        
+        const result = {
+            skills: [],
+            experience: [],
+            education: [],
+            contact: {}
+        };
+        
+        // Try to extract skills (usually comma separated or bullet points)
+        const skillsMatch = additionalInfo.match(/skills:?\s*([\s\S]*?)(?:\n\n|\n(?=[A-Za-z]+:)|$)/i);
+        if (skillsMatch) {
+            result.skills = skillsMatch[1]
+                .split(/,|\n|•/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+        }
+        
+        // Try to extract experience
+        const experienceMatch = additionalInfo.match(/experience:?\s*([\s\S]*?)(?:\n\n|\n(?=[A-Za-z]+:)|$)/i);
+        if (experienceMatch) {
+            result.experience = parseStructuredSection(experienceMatch[1]);
+        }
+        
+        // Try to extract education
+        const educationMatch = additionalInfo.match(/education:?\s*([\s\S]*?)(?:\n\n|\n(?=[A-Za-z]+:)|$)/i);
+        if (educationMatch) {
+            result.education = parseStructuredSection(educationMatch[1]);
+        }
+        
+        // Try to extract contact information
+        const emailMatch = additionalInfo.match(/email:?\s*([^\n]+)/i);
+        if (emailMatch) result.contact.email = emailMatch[1].trim();
+        
+        const phoneMatch = additionalInfo.match(/phone:?\s*([^\n]+)/i);
+        if (phoneMatch) result.contact.phone = phoneMatch[1].trim();
+        
+        const locationMatch = additionalInfo.match(/location:?\s*([^\n]+)/i);
+        if (locationMatch) result.contact.location = locationMatch[1].trim();
+        
+        const linkedinMatch = additionalInfo.match(/linkedin:?\s*([^\n]+)/i);
+        if (linkedinMatch) result.contact.linkedin = linkedinMatch[1].trim();
+        
+        const websiteMatch = additionalInfo.match(/website:?\s*([^\n]+)/i);
+        if (websiteMatch) result.contact.website = websiteMatch[1].trim();
+        
+        return result;
+    }
+    
+    function parseStructuredSection(text) {
+        // Split by double newlines or patterns that look like they start a new entry
+        const entries = text.split(/\n\n|\n(?=\d{4}|\d{1,2}\/\d{1,2}|\w+\s+\d{4}|[A-Z][a-z]+\s+\d{4})/);
+        
+        return entries
+            .map(entry => entry.trim())
+            .filter(entry => entry.length > 0);
     }
 
     // Add a generic retry function for any operation
