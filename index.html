@@ -1,0 +1,59 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSim Resume Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>WebSim Resume Generator</h1>
+            <p>Create a professional resume using your WebSim project data</p>
+        </header>
+
+        <div class="form-container">
+            <div class="input-group">
+                <label for="username">WebSim Username:</label>
+                <div class="username-input">
+                    <span>@</span>
+                    <input type="text" id="username" placeholder="Enter your WebSim username">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="additional-info">Additional Information (optional):</label>
+                <textarea id="additional-info" placeholder="Add any additional information like skills, education, or work experience"></textarea>
+            </div>
+
+            <button id="generate-btn">Generate Resume</button>
+        </div>
+
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Analyzing your projects and generating resume...</p>
+            <div id="progress-container">
+                <div id="progress-bar"><div id="progress"></div></div>
+                <p id="status-message">Fetching project data...</p>
+            </div>
+        </div>
+
+        <div id="result" class="hidden">
+            <div class="resume-controls">
+                <button id="download-pdf">Download PDF</button>
+                <button id="copy-html">Copy HTML</button>
+                <button id="regenerate">Regenerate</button>
+            </div>
+            <div id="resume-preview"></div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>Created with WebSim AI • Your data never leaves your browser</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+    <script src="app.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>

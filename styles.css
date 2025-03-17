@@ -1,0 +1,283 @@
+:root {
+    --primary-color: #6366f1;
+    --primary-hover: #4f46e5;
+    --secondary-color: #f9fafb;
+    --text-color: #1f2937;
+    --border-color: #e5e7eb;
+    --error-color: #ef4444;
+    --success-color: #10b981;
+    --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+        Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    background-color: #f3f4f6;
+    color: var(--text-color);
+    line-height: 1.5;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+header p {
+    color: #6b7280;
+    font-size: 1.1rem;
+}
+
+.form-container {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: var(--box-shadow);
+    margin-bottom: 2rem;
+}
+
+.input-group {
+    margin-bottom: 1.5rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.username-input {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.username-input span {
+    background-color: #f3f4f6;
+    padding: 0.5rem 0.75rem;
+    color: #6b7280;
+    border-right: 1px solid var(--border-color);
+}
+
+input, textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 1rem;
+    color: var(--text-color);
+    transition: border-color 0.15s ease-in-out;
+}
+
+.username-input input {
+    border: none;
+    flex: 1;
+}
+
+input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+}
+
+button:hover {
+    background-color: var(--primary-hover);
+}
+
+#generate-btn {
+    width: 100%;
+}
+
+.hidden {
+    display: none;
+}
+
+#loading {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 1rem;
+    border: 4px solid rgba(99, 102, 241, 0.1);
+    border-left-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+#progress-container {
+    margin-top: 1rem;
+    width: 100%;
+}
+
+#progress-bar {
+    width: 100%;
+    background-color: #e5e7eb;
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+#progress {
+    height: 100%;
+    background-color: var(--primary-color);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+#status-message {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+#result {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: var(--box-shadow);
+    overflow: hidden;
+}
+
+.resume-controls {
+    background-color: #f9fafb;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.5rem;
+}
+
+#resume-preview {
+    padding: 2rem;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* Resume styles */
+.resume {
+    font-family: 'Georgia', serif;
+    color: #333;
+    line-height: 1.6;
+}
+
+.resume-header {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.resume-header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #1f2937;
+}
+
+.resume-header p {
+    color: #6b7280;
+}
+
+.resume-section {
+    margin-bottom: 1.5rem;
+}
+
+.resume-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #4f46e5;
+    border-bottom: 2px solid #f3f4f6;
+    padding-bottom: 0.5rem;
+}
+
+.project-item {
+    margin-bottom: 1rem;
+}
+
+.project-item h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.project-item p {
+    font-size: 0.95rem;
+    color: #4b5563;
+    margin-bottom: 0.5rem;
+}
+
+.project-stats {
+    font-size: 0.85rem;
+    color: #6b7280;
+    display: flex;
+    gap: 1rem;
+}
+
+footer {
+    text-align: center;
+    padding: 2rem 0;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+@media (max-width: 640px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .form-container, #result {
+        padding: 1rem;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .resume-controls {
+        flex-direction: column;
+    }
+    
+    button {
+        width: 100%;
+    }
+}
+
