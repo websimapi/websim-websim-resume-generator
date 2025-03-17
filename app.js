@@ -430,30 +430,24 @@ Instructions:
     // Add a generic retry function for any operation that maintains state between retries
     async function retryOperation(operation) {
         let retries = 0;
-        const maxRetries = 3;
+        let delay = 1000; // Start with 1 second delay
         let lastError = null;
         
-        while (retries < maxRetries) {
+        while (true) {
             try {
                 if (retries > 0) {
-                    updateProgress(null, `Retry attempt ${retries}/${maxRetries}...`);
-                    // Wait a second before retrying
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    updateProgress(null, `Retry attempt ${retries}... (waiting ${delay/1000}s)`);
+                    // Wait before retrying with increasing delay
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    // Increase delay for next retry
+                    delay += 1000;
                 }
                 return await operation();
             } catch (error) {
                 retries++;
                 lastError = error;
-                console.error(`Operation failed (attempt ${retries}/${maxRetries}):`, error);
-                
-                if (retries >= maxRetries) {
-                    console.warn('Maximum retries reached, continuing with process');
-                    // Return a fallback value or null
-                    return error.fallbackValue !== undefined ? error.fallbackValue : null;
-                }
+                console.error(`Operation failed (attempt ${retries}):`, error);
             }
         }
-        
-        throw lastError; // This should never be reached
     }
 });
