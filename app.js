@@ -181,28 +181,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to fetch user data
     async function fetchUserData(username) {
+        // Check if user data is in localStorage
+        const cachedUserData = localStorage.getItem(`userData_${username}`);
+        if (cachedUserData) {
+            return JSON.parse(cachedUserData);
+        }
+
         const response = await fetch(`/api/v1/users/${username}`);
         if (!response.ok) {
             throw new Error('User not found');
         }
         const data = await response.json();
+        
+        // Cache the user data
+        localStorage.setItem(`userData_${username}`, JSON.stringify(data.user));
         return data.user;
     }
 
     // Function to fetch user projects
     async function fetchUserProjects(username) {
-        // Set a large limit to get as many projects as possible
-        const response = await fetch(`/api/v1/users/${username}/projects?first=100`);
-        if (!response.ok) {
-            throw new Error('Failed to fetch projects');
+        // Check if we have cached projects
+        const cachedProjectsKey = `projects_${username}`;
+        const cachedProjects = localStorage.getItem(cachedProjectsKey);
+        let allProjects = [];
+        let nextCursor = null;
+        
+        if (cachedProjects) {
+            const parsedCache = JSON.parse(cachedProjects);
+            allProjects = parsedCache.projects;
+            nextCursor = parsedCache.nextCursor;
+            
+            // If we have complete data, return it
+            if (!parsedCache.hasNextPage) {
+                return allProjects;
+            }
+            
+            updateProgress(30, `Found ${allProjects.length} cached projects. Fetching more...`);
+        } else {
+            // Set a large limit to get as many projects as possible
+            const response = await fetch(`/api/v1/users/${username}/projects?first=100`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch projects');
+            }
+            
+            const data = await response.json();
+            allProjects = [...data.projects.data];
+            
+            // Save next cursor for pagination
+            nextCursor = data.projects.meta.end_cursor;
+            
+            // Cache partial results
+            localStorage.setItem(cachedProjectsKey, JSON.stringify({
+                projects: allProjects,
+                nextCursor: nextCursor,
+                hasNextPage: data.projects.meta.has_next_page
+            }));
+            
+            if (!data.projects.meta.has_next_page) {
+                return allProjects;
+            }
         }
         
-        const data = await response.json();
-        let allProjects = [...data.projects.data];
-        
-        // If there are more pages, fetch them
-        let nextCursor = data.projects.meta.end_cursor;
-        while (nextCursor && data.projects.meta.has_next_page) {
+        // If there are more pages, fetch them starting from the last cursor
+        let hasNextPage = true;
+        while (nextCursor && hasNextPage) {
             updateProgress(30, `Fetching more projects... (${allProjects.length} so far)`);
             
             const nextResponse = await fetch(`/api/v1/users/${username}/projects?first=100&after=${nextCursor}`);
@@ -211,8 +253,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextData = await nextResponse.json();
             allProjects = [...allProjects, ...nextData.projects.data];
             nextCursor = nextData.projects.meta.end_cursor;
+            hasNextPage = nextData.projects.meta.has_next_page;
             
-            if (!nextData.projects.meta.has_next_page) break;
+            // Update cache with new data
+            localStorage.setItem(cachedProjectsKey, JSON.stringify({
+                projects: allProjects,
+                nextCursor: nextCursor,
+                hasNextPage: hasNextPage
+            }));
+            
+            if (!hasNextPage) break;
         }
         
         return allProjects;
@@ -377,30 +427,33 @@ Instructions:
             .filter(entry => entry.length > 0);
     }
 
-    // Add a generic retry function for any operation
+    // Add a generic retry function for any operation that maintains state between retries
     async function retryOperation(operation) {
         let retries = 0;
         const maxRetries = 3;
+        let lastError = null;
         
         while (retries < maxRetries) {
             try {
+                if (retries > 0) {
+                    updateProgress(null, `Retry attempt ${retries}/${maxRetries}...`);
+                    // Wait a second before retrying
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
                 return await operation();
             } catch (error) {
                 retries++;
+                lastError = error;
                 console.error(`Operation failed (attempt ${retries}/${maxRetries}):`, error);
                 
                 if (retries >= maxRetries) {
                     console.warn('Maximum retries reached, continuing with process');
-                    // Return a fallback value or throw depending on context
-                    return error.fallbackValue || [];
+                    // Return a fallback value or null
+                    return error.fallbackValue !== undefined ? error.fallbackValue : null;
                 }
-                
-                // Show retry message in progress
-                updateProgress(null, `Retry attempt ${retries}/${maxRetries}...`);
-                
-                // Wait a second before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
+        
+        throw lastError; // This should never be reached
     }
 });
