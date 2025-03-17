@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate score based on likes, comments, and version (number of revisions)
         const likeScore = project.stats.likes * 3;
         const commentScore = project.stats.comments * 5;
-        const versionScore = (revision.version || 1) * 2;
+        const versionScore = revision && revision.version ? revision.version * 2 : 0;
         
         // Bonus points for projects that have been posted
         const postedBonus = project.posted ? 10 : 0;
