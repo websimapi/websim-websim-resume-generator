@@ -27,16 +27,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Reset progress
             updateProgress(0, 'Fetching user data...');
 
-            // Fetch user data
-            const userData = await fetchUserData(username);
+            // Fetch user data with retries
+            const userData = await retryOperation(() => fetchUserData(username));
             if (!userData) {
                 throw new Error('User not found');
             }
             
             updateProgress(10, 'Fetching projects...');
 
-            // Fetch user's projects
-            const projects = await fetchUserProjects(username);
+            // Fetch user's projects with retries
+            const projects = await retryOperation(() => fetchUserProjects(username));
             if (!projects || projects.length === 0) {
                 throw new Error('No projects found for this user');
             }
@@ -53,9 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             updateProgress(70, 'Generating resume with AI...');
 
-            // Generate resume using LLM
+            // Generate resume using LLM with retries
             const additionalInfo = additionalInfoInput.value.trim();
-            const resumeContent = await generateResume(userData, topProjects, additionalInfo);
+            const resumeContent = await retryOperation(() => 
+                generateResume(userData, topProjects, additionalInfo));
             
             updateProgress(90, 'Preparing resume preview...');
 
@@ -107,14 +108,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Get the same data but generate a new resume
             const username = usernameInput.value.trim();
-            const userData = await fetchUserData(username);
-            const projects = await fetchUserProjects(username);
+            const userData = await retryOperation(() => fetchUserData(username));
+            const projects = await retryOperation(() => fetchUserProjects(username));
             const rankedProjects = rankProjects(projects);
             const topProjects = rankedProjects.slice(0, 100);
             const additionalInfo = additionalInfoInput.value.trim();
             
             // Add a regeneration flag to get a different style
-            const resumeContent = await generateResume(userData, topProjects, additionalInfo, true);
+            const resumeContent = await retryOperation(() => 
+                generateResume(userData, topProjects, additionalInfo, true));
             
             resumePreview.innerHTML = resumeContent;
             
@@ -129,72 +131,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper function to update progress bar
     function updateProgress(percent, message) {
-        progressBar.style.width = `${percent}%`;
+        if (percent !== null) {
+            progressBar.style.width = `${percent}%`;
+        }
         statusMessage.textContent = message;
     }
 
     // Function to fetch user data
     async function fetchUserData(username) {
-        try {
-            const response = await fetch(`/api/v1/users/${username}`);
-            if (!response.ok) {
-                throw new Error('User not found');
-            }
-            const data = await response.json();
-            return data.user;
-        } catch (error) {
-            console.error('Error fetching user data:', error);
-            throw new Error('Failed to fetch user data');
+        const response = await fetch(`/api/v1/users/${username}`);
+        if (!response.ok) {
+            throw new Error('User not found');
         }
+        const data = await response.json();
+        return data.user;
     }
 
     // Function to fetch user projects
     async function fetchUserProjects(username) {
-        let retries = 0;
-        const maxRetries = 3;
-        
-        while (retries < maxRetries) {
-            try {
-                // Set a large limit to get as many projects as possible
-                const response = await fetch(`/api/v1/users/${username}/projects?first=100`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch projects');
-                }
-                
-                const data = await response.json();
-                let allProjects = [...data.projects.data];
-                
-                // If there are more pages, fetch them
-                let nextCursor = data.projects.meta.end_cursor;
-                while (nextCursor && data.projects.meta.has_next_page) {
-                    updateProgress(30, `Fetching more projects... (${allProjects.length} so far)`);
-                    
-                    const nextResponse = await fetch(`/api/v1/users/${username}/projects?first=100&after=${nextCursor}`);
-                    if (!nextResponse.ok) break;
-                    
-                    const nextData = await nextResponse.json();
-                    allProjects = [...allProjects, ...nextData.projects.data];
-                    nextCursor = nextData.projects.meta.end_cursor;
-                    
-                    if (!nextData.projects.meta.has_next_page) break;
-                }
-                
-                return allProjects;
-            } catch (error) {
-                retries++;
-                console.error(`Error fetching projects (attempt ${retries}/${maxRetries}):`, error);
-                
-                if (retries >= maxRetries) {
-                    throw new Error('Failed to fetch projects after multiple attempts');
-                }
-                
-                // Show retry message in progress
-                updateProgress(30, `Retry attempt ${retries}/${maxRetries} to fetch projects...`);
-                
-                // Wait a second before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
+        // Set a large limit to get as many projects as possible
+        const response = await fetch(`/api/v1/users/${username}/projects?first=100`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch projects');
         }
+        
+        const data = await response.json();
+        let allProjects = [...data.projects.data];
+        
+        // If there are more pages, fetch them
+        let nextCursor = data.projects.meta.end_cursor;
+        while (nextCursor && data.projects.meta.has_next_page) {
+            updateProgress(30, `Fetching more projects... (${allProjects.length} so far)`);
+            
+            const nextResponse = await fetch(`/api/v1/users/${username}/projects?first=100&after=${nextCursor}`);
+            if (!nextResponse.ok) break;
+            
+            const nextData = await nextResponse.json();
+            allProjects = [...allProjects, ...nextData.projects.data];
+            nextCursor = nextData.projects.meta.end_cursor;
+            
+            if (!nextData.projects.meta.has_next_page) break;
+        }
+        
+        return allProjects;
     }
 
     // Function to rank projects by engagement metrics
@@ -287,6 +266,33 @@ Instructions:
         } catch (error) {
             console.error('Error generating resume with LLM:', error);
             throw new Error('Failed to generate resume');
+        }
+    }
+
+    // Add a generic retry function for any operation
+    async function retryOperation(operation) {
+        let retries = 0;
+        const maxRetries = 3;
+        
+        while (retries < maxRetries) {
+            try {
+                return await operation();
+            } catch (error) {
+                retries++;
+                console.error(`Operation failed (attempt ${retries}/${maxRetries}):`, error);
+                
+                if (retries >= maxRetries) {
+                    console.warn('Maximum retries reached, continuing with process');
+                    // Return a fallback value or throw depending on context
+                    return error.fallbackValue || [];
+                }
+                
+                // Show retry message in progress
+                updateProgress(null, `Retry attempt ${retries}/${maxRetries}...`);
+                
+                // Wait a second before retrying
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
         }
     }
 });
