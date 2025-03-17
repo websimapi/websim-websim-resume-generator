@@ -244,8 +244,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // If there are more pages, fetch them starting from the last cursor
         let hasNextPage = true;
-        while (nextCursor && hasNextPage) {
+        let paginationCount = 0;
+        const MAX_PAGES = 10; // Limit to 10 pages (1000 records with 100 per page)
+        
+        while (nextCursor && hasNextPage && paginationCount < MAX_PAGES) {
             updateProgress(30, `Fetching more projects... (${allProjects.length} so far)`);
+            paginationCount++;
             
             const nextResponse = await fetch(`/api/v1/users/${username}/projects?first=100&after=${nextCursor}`);
             if (!nextResponse.ok) break;
@@ -259,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem(cachedProjectsKey, JSON.stringify({
                 projects: allProjects,
                 nextCursor: nextCursor,
-                hasNextPage: hasNextPage
+                hasNextPage: hasNextPage && paginationCount < MAX_PAGES
             }));
             
             if (!hasNextPage) break;
