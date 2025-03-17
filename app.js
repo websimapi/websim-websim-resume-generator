@@ -150,35 +150,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to fetch user projects
     async function fetchUserProjects(username) {
-        try {
-            // Set a large limit to get as many projects as possible
-            const response = await fetch(`/api/v1/users/${username}/projects?first=100`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch projects');
+        let retries = 0;
+        const maxRetries = 3;
+        
+        while (retries < maxRetries) {
+            try {
+                // Set a large limit to get as many projects as possible
+                const response = await fetch(`/api/v1/users/${username}/projects?first=100`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch projects');
+                }
+                
+                const data = await response.json();
+                let allProjects = [...data.projects.data];
+                
+                // If there are more pages, fetch them
+                let nextCursor = data.projects.meta.end_cursor;
+                while (nextCursor && data.projects.meta.has_next_page) {
+                    updateProgress(30, `Fetching more projects... (${allProjects.length} so far)`);
+                    
+                    const nextResponse = await fetch(`/api/v1/users/${username}/projects?first=100&after=${nextCursor}`);
+                    if (!nextResponse.ok) break;
+                    
+                    const nextData = await nextResponse.json();
+                    allProjects = [...allProjects, ...nextData.projects.data];
+                    nextCursor = nextData.projects.meta.end_cursor;
+                    
+                    if (!nextData.projects.meta.has_next_page) break;
+                }
+                
+                return allProjects;
+            } catch (error) {
+                retries++;
+                console.error(`Error fetching projects (attempt ${retries}/${maxRetries}):`, error);
+                
+                if (retries >= maxRetries) {
+                    throw new Error('Failed to fetch projects after multiple attempts');
+                }
+                
+                // Show retry message in progress
+                updateProgress(30, `Retry attempt ${retries}/${maxRetries} to fetch projects...`);
+                
+                // Wait a second before retrying
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
-            
-            const data = await response.json();
-            let allProjects = [...data.projects.data];
-            
-            // If there are more pages, fetch them
-            let nextCursor = data.projects.meta.end_cursor;
-            while (nextCursor && data.projects.meta.has_next_page) {
-                updateProgress(30, `Fetching more projects... (${allProjects.length} so far)`);
-                
-                const nextResponse = await fetch(`/api/v1/users/${username}/projects?first=100&after=${nextCursor}`);
-                if (!nextResponse.ok) break;
-                
-                const nextData = await nextResponse.json();
-                allProjects = [...allProjects, ...nextData.projects.data];
-                nextCursor = nextData.projects.meta.end_cursor;
-                
-                if (!nextData.projects.meta.has_next_page) break;
-            }
-            
-            return allProjects;
-        } catch (error) {
-            console.error('Error fetching projects:', error);
-            throw new Error('Failed to fetch projects');
         }
     }
 
@@ -275,4 +290,3 @@ Instructions:
         }
     }
 });
-
